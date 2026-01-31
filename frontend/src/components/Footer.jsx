@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import { Truck, Phone, Mail, MapPin, ExternalLink } from "lucide-react";
+import { Phone, Mail, MapPin, ExternalLink } from "lucide-react";
+
+const COMPANY_LOGO = "https://customer-assets.emergentagent.com/job_karan-freight/artifacts/7n62afik_logo.PNG";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -12,14 +14,11 @@ const Footer = () => {
           {/* Company Info */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-orange-500 p-2">
-                <Truck className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-                  Karan Singh Transport Services
-                </span>
-              </div>
+              <img 
+                src={COMPANY_LOGO} 
+                alt="Karan Singh Transport Services" 
+                className="h-20 w-auto object-contain bg-white p-2 rounded"
+              />
             </div>
             <p className="text-orange-500 font-semibold uppercase tracking-wider text-sm mb-4">
               Safe • Fast • Reliable Services

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Truck, Phone } from "lucide-react";
+import { Menu, X, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const COMPANY_LOGO = "https://customer-assets.emergentagent.com/job_karan-freight/artifacts/7n62afik_logo.PNG";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -23,18 +25,12 @@ const Header = () => {
       <div className="section-container">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3" data-testid="logo-link">
-            <div className="bg-slate-900 p-2">
-              <Truck className="w-6 h-6 text-orange-500" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-slate-900 tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-                Karan Singh
-              </span>
-              <span className="text-xs text-slate-500 uppercase tracking-widest">
-                Transport Services
-              </span>
-            </div>
+          <Link to="/" className="flex items-center" data-testid="logo-link">
+            <img 
+              src={COMPANY_LOGO} 
+              alt="Karan Singh Transport Services" 
+              className="h-16 w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop Navigation */}
