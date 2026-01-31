@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import CompanyLogo from "@/components/CompanyLogo";
+
+const COMPANY_LOGO = "https://customer-assets.emergentagent.com/job_karan-freight/artifacts/7n62afik_logo.PNG";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -25,7 +26,12 @@ const Header = () => {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center" data-testid="logo-link">
-            <CompanyLogo className="h-14 w-auto" />
+            <img 
+              src={COMPANY_LOGO} 
+              alt="Karan Singh Transport Services" 
+              className="h-16 w-auto"
+              style={{ imageRendering: 'crisp-edges' }}
+            />
           </Link>
 
           {/* Desktop Navigation */}
