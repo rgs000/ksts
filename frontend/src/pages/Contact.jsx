@@ -12,10 +12,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { MapPin, Phone, Mail, ExternalLink, Clock, Send, CheckCircle } from "lucide-react";
-import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Formspree endpoint - Replace YOUR_FORM_ID with actual Formspree form ID
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/xwpopwvl";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -43,17 +42,37 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      await axios.post(`${API}/contact`, formData);
-      setIsSubmitted(true);
-      toast.success("Inquiry submitted successfully! We'll contact you soon.");
-      setFormData({
-        name: "",
-        company: "",
-        email: "",
-        phone: "",
-        service_type: "",
-        message: "",
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          company: formData.company || "Not provided",
+          email: formData.email,
+          phone: formData.phone || "Not provided",
+          service_type: formData.service_type,
+          message: formData.message,
+          _subject: `New Inquiry: ${formData.service_type} - ${formData.name}`,
+        }),
       });
+
+      if (response.ok) {
+        setIsSubmitted(true);
+        toast.success("Inquiry submitted successfully! We'll contact you soon.");
+        setFormData({
+          name: "",
+          company: "",
+          email: "",
+          phone: "",
+          service_type: "",
+          message: "",
+        });
+      } else {
+        throw new Error("Form submission failed");
+      }
     } catch (error) {
       console.error("Error submitting form:", error);
       toast.error("Failed to submit inquiry. Please try again or contact us directly.");
