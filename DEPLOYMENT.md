@@ -1,328 +1,159 @@
-# Karan Singh Transport Services - Deployment Guide
+# Karan Singh Transport Services - Static Website Deployment
+
+## Overview
+This is a **static React website** with email functionality via Formspree.
+No backend or database required!
 
 ## Domain & Hosting Information
 - **Domain:** https://www.karansinghtransport.com
 - **Registrar:** Namecheap
 - **Email:** contact@karansinghtransport.com
-- **Mail Server:** mail.privateemail.com (Port 465, SSL)
 
 ---
 
-## Project Structure
-```
-/app
-├── backend/                 # FastAPI Backend (Python)
-│   ├── server.py           # Main API server
-│   ├── requirements.txt    # Python dependencies
-│   └── .env                # Environment variables
-├── frontend/               # React Frontend
-│   ├── src/               # Source code
-│   ├── public/            # Static assets
-│   ├── package.json       # Node dependencies
-│   └── .env               # Frontend environment
-└── DEPLOYMENT.md          # This file
-```
+## How It Works
 
----
-
-## Environment Variables
-
-### Backend (.env)
-```env
-MONGO_URL="mongodb://localhost:27017"
-DB_NAME="karan_transport"
-CORS_ORIGINS="https://www.karansinghtransport.com,https://karansinghtransport.com"
-SMTP_SERVER=mail.privateemail.com
-SMTP_PORT=465
-SMTP_EMAIL=contact@karansinghtransport.com
-SMTP_PASSWORD=Ksts@123
-NOTIFICATION_EMAIL=contact@karansinghtransport.com
-```
-
-### Frontend (.env)
-```env
-REACT_APP_BACKEND_URL=https://www.karansinghtransport.com
-```
+### Contact Form → Email
+The contact form uses **Formspree** (free service) to send emails directly to your inbox.
+- Form submissions go to: contact@karansinghtransport.com
+- No backend server needed
+- No database needed
 
 ---
 
 ## Deployment Options
 
-### Option 1: VPS/Cloud Server (Recommended)
+### Option 1: Namecheap Shared Hosting (Easiest)
 
-#### Requirements
-- Ubuntu 22.04 LTS (or similar)
-- 2GB RAM minimum
-- Node.js 18+
-- Python 3.10+
-- MongoDB 6+
-- Nginx
-- SSL Certificate (Let's Encrypt)
-
-#### Step-by-Step Deployment
-
+1. **Build the website:**
 ```bash
-# 1. Update system
-sudo apt update && sudo apt upgrade -y
-
-# 2. Install Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 3. Install Python & pip
-sudo apt install -y python3 python3-pip python3-venv
-
-# 4. Install MongoDB
-sudo apt install -y mongodb
-sudo systemctl enable mongodb
-sudo systemctl start mongodb
-
-# 5. Install Nginx
-sudo apt install -y nginx
-
-# 6. Clone your repository
-cd /var/www
-git clone https://github.com/YOUR_USERNAME/karan-transport.git
-cd karan-transport
-
-# 7. Setup Backend
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Create production .env file
-nano .env
-# Add the environment variables from above
-
-# 8. Setup Frontend
-cd ../frontend
-npm install
-npm run build
-
-# 9. Install PM2 for process management
-sudo npm install -g pm2
-
-# 10. Start Backend with PM2
-cd ../backend
-pm2 start "uvicorn server:app --host 127.0.0.1 --port 8001" --name "karan-backend"
-pm2 save
-pm2 startup
+cd frontend
+yarn install
+yarn build
 ```
 
-#### Nginx Configuration
+2. **Upload to hosting:**
+   - Login to Namecheap cPanel
+   - Go to File Manager → public_html
+   - Upload ALL contents from `frontend/build/` folder
+   - Done! Your site is live.
 
-Create file: `/etc/nginx/sites-available/karansinghtransport.com`
+### Option 2: Netlify (Free & Recommended)
 
-```nginx
-server {
-    listen 80;
-    server_name karansinghtransport.com www.karansinghtransport.com;
-    return 301 https://$server_name$request_uri;
-}
+1. Push code to GitHub
+2. Go to [netlify.com](https://netlify.com)
+3. Click "Add new site" → "Import an existing project"
+4. Connect your GitHub repo
+5. Set build settings:
+   - Base directory: `frontend`
+   - Build command: `yarn build`
+   - Publish directory: `frontend/build`
+6. Click Deploy!
 
-server {
-    listen 443 ssl http2;
-    server_name karansinghtransport.com www.karansinghtransport.com;
+**Custom Domain Setup on Netlify:**
+- Go to Domain Settings → Add custom domain
+- Add: `karansinghtransport.com` and `www.karansinghtransport.com`
+- Update Namecheap DNS to point to Netlify
 
-    # SSL Configuration (Let's Encrypt)
-    ssl_certificate /etc/letsencrypt/live/karansinghtransport.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/karansinghtransport.com/privkey.pem;
+### Option 3: Vercel (Free)
 
-    # Frontend (React build)
-    root /var/www/karan-transport/frontend/build;
-    index index.html;
+1. Push code to GitHub
+2. Go to [vercel.com](https://vercel.com)
+3. Import your GitHub repo
+4. Set root directory: `frontend`
+5. Deploy!
 
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+### Option 4: GitHub Pages (Free)
 
-    # Backend API proxy
-    location /api {
-        proxy_pass http://127.0.0.1:8001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-}
-```
-
-Enable the site:
-```bash
-sudo ln -s /etc/nginx/sites-available/karansinghtransport.com /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-#### SSL Certificate (Let's Encrypt)
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d karansinghtransport.com -d www.karansinghtransport.com
-```
-
----
-
-### Option 2: Shared Hosting (cPanel)
-
-If using Namecheap shared hosting:
-
-1. **Frontend Only:** Upload `/frontend/build` contents to `public_html`
-2. **Backend:** Shared hosting typically doesn't support Python - use a separate VPS or cloud service
-
----
-
-### Option 3: Docker Deployment
-
-#### docker-compose.yml
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:6
-    restart: always
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - app-network
-
-  backend:
-    build: ./backend
-    restart: always
-    ports:
-      - "8001:8001"
-    environment:
-      - MONGO_URL=mongodb://mongodb:27017
-      - DB_NAME=karan_transport
-      - CORS_ORIGINS=https://www.karansinghtransport.com
-      - SMTP_SERVER=mail.privateemail.com
-      - SMTP_PORT=465
-      - SMTP_EMAIL=contact@karansinghtransport.com
-      - SMTP_PASSWORD=Ksts@123
-      - NOTIFICATION_EMAIL=contact@karansinghtransport.com
-    depends_on:
-      - mongodb
-    networks:
-      - app-network
-
-  frontend:
-    build: ./frontend
-    restart: always
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    networks:
-      - app-network
-
-volumes:
-  mongodb_data:
-
-networks:
-  app-network:
-    driver: bridge
-```
-
-#### Backend Dockerfile (`/backend/Dockerfile`)
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8001
-
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
-```
-
-#### Frontend Dockerfile (`/frontend/Dockerfile`)
-```dockerfile
-FROM node:18-alpine as build
-
-WORKDIR /app
-
-COPY package.json yarn.lock ./
-RUN yarn install
-
-COPY . .
-RUN yarn build
-
-FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-Run with:
-```bash
-docker-compose up -d
-```
+1. Build locally: `cd frontend && yarn build`
+2. Push `build` folder to `gh-pages` branch
+3. Enable GitHub Pages in repo settings
 
 ---
 
 ## Namecheap DNS Configuration
 
-Point your domain to your server:
+### For Netlify:
+| Type | Host | Value |
+|------|------|-------|
+| CNAME | @ | your-site.netlify.app |
+| CNAME | www | your-site.netlify.app |
 
-| Type | Host | Value | TTL |
-|------|------|-------|-----|
-| A | @ | YOUR_SERVER_IP | Automatic |
-| A | www | YOUR_SERVER_IP | Automatic |
-| CNAME | www | karansinghtransport.com | Automatic |
-
----
-
-## Post-Deployment Checklist
-
-- [ ] DNS propagated (check with `nslookup karansinghtransport.com`)
-- [ ] SSL certificate installed and working
-- [ ] Frontend loads at https://www.karansinghtransport.com
-- [ ] API responds at https://www.karansinghtransport.com/api/
-- [ ] Contact form submits successfully
-- [ ] Email notifications received at contact@karansinghtransport.com
-- [ ] All 6 pages accessible (Home, About, Services, Routes, Network, Contact)
-- [ ] Mobile responsive design working
+### For Your Own Server:
+| Type | Host | Value |
+|------|------|-------|
+| A | @ | YOUR_SERVER_IP |
+| A | www | YOUR_SERVER_IP |
 
 ---
 
-## Useful Commands
+## Formspree Setup (Already Configured)
+
+The contact form is already set up with Formspree. Emails will be sent to your registered Formspree account.
+
+**Current Formspree endpoint:** `https://formspree.io/f/xwpopwvl`
+
+To change the email recipient:
+1. Go to [formspree.io](https://formspree.io)
+2. Create account with contact@karansinghtransport.com
+3. Create new form
+4. Update the endpoint in `frontend/src/pages/Contact.jsx`
+
+---
+
+## File Structure
+
+```
+frontend/
+├── public/           # Static assets
+├── src/
+│   ├── components/   # Reusable components
+│   │   ├── Header.jsx
+│   │   ├── Footer.jsx
+│   │   └── ui/       # Shadcn UI components
+│   ├── pages/        # Page components
+│   │   ├── Home.jsx
+│   │   ├── About.jsx
+│   │   ├── Services.jsx
+│   │   ├── ServiceRoutes.jsx
+│   │   ├── AssociateNetwork.jsx
+│   │   └── Contact.jsx
+│   ├── App.js
+│   ├── App.css
+│   └── index.css
+├── package.json
+└── tailwind.config.js
+```
+
+---
+
+## Quick Deploy Commands
 
 ```bash
-# Check backend logs
-pm2 logs karan-backend
+# Install dependencies
+cd frontend
+yarn install
 
-# Restart backend
-pm2 restart karan-backend
+# Development server
+yarn start
 
-# Check nginx logs
-sudo tail -f /var/log/nginx/error.log
+# Build for production
+yarn build
 
-# Renew SSL certificate
-sudo certbot renew
-
-# Update code from GitHub
-cd /var/www/karan-transport
-git pull
-cd frontend && npm run build
-pm2 restart karan-backend
+# The 'build' folder contains your static website
+# Upload this folder to any static hosting
 ```
+
+---
+
+## Benefits of Static Hosting
+
+✅ **Free hosting** - Netlify, Vercel, GitHub Pages all free  
+✅ **Fast** - No server processing, just static files  
+✅ **Secure** - No database to hack  
+✅ **Simple** - Just upload files  
+✅ **Reliable** - No server to maintain  
+✅ **Global CDN** - Fast loading worldwide  
 
 ---
 
@@ -333,15 +164,3 @@ pm2 restart karan-backend
 - **Website:** https://www.karansinghtransport.com
 - **Email:** contact@karansinghtransport.com
 - **Phone:** +91 8440004260, +91 8433062315
-
----
-
-## Recommended VPS Providers
-
-1. **DigitalOcean** - $6/month (1GB RAM) - Easy setup
-2. **Vultr** - $6/month - Good performance
-3. **Linode** - $5/month - Reliable
-4. **AWS Lightsail** - $5/month - AWS ecosystem
-5. **Hostinger VPS** - $4/month - Budget friendly
-
-All support the stack: Node.js + Python + MongoDB + Nginx
