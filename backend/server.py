@@ -4,11 +4,13 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+import resend
 
 
 ROOT_DIR = Path(__file__).parent
@@ -18,6 +20,11 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Resend email configuration
+resend.api_key = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', 'contact@karansinghtransport.com')
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -86,6 +93,76 @@ async def get_status_checks():
     
     return status_checks
 
+# Email sending helper
+async def send_contact_notification(inquiry: ContactInquiry):
+    """Send email notification for new contact inquiry"""
+    if not resend.api_key:
+        logger.warning("RESEND_API_KEY not configured, skipping email notification")
+        return None
+    
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0f172a; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; color: #f97316;">New Contact Inquiry</h1>
+            <p style="margin: 10px 0 0 0; color: #94a3b8;">Karan Singh Transport Services</p>
+        </div>
+        
+        <div style="padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+            <h2 style="color: #0f172a; border-bottom: 2px solid #f97316; padding-bottom: 10px;">Contact Details</h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b; width: 120px;">Name:</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{inquiry.name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Company:</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{inquiry.company or 'Not provided'}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Email:</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;"><a href="mailto:{inquiry.email}" style="color: #f97316;">{inquiry.email}</a></td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Phone:</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{inquiry.phone or 'Not provided'}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">Service Type:</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0; color: #0f172a;">{inquiry.service_type}</td>
+                </tr>
+            </table>
+            
+            <h3 style="color: #0f172a; margin-top: 20px;">Message:</h3>
+            <div style="background-color: white; padding: 15px; border: 1px solid #e2e8f0; border-left: 4px solid #f97316;">
+                <p style="margin: 0; color: #334155; line-height: 1.6;">{inquiry.message}</p>
+            </div>
+        </div>
+        
+        <div style="background-color: #0f172a; color: #94a3b8; padding: 15px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">This is an automated notification from your website contact form.</p>
+            <p style="margin: 5px 0 0 0;">Inquiry ID: {inquiry.id}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    params = {
+        "from": SENDER_EMAIL,
+        "to": [NOTIFICATION_EMAIL],
+        "subject": f"New Inquiry: {inquiry.service_type} - {inquiry.name}",
+        "html": html_content
+    }
+    
+    try:
+        email = await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Email notification sent for inquiry {inquiry.id}")
+        return email
+    except Exception as e:
+        logger.error(f"Failed to send email notification: {str(e)}")
+        return None
+
 # Contact Inquiry Routes
 @api_router.post("/contact", response_model=ContactInquiry)
 async def create_contact_inquiry(input: ContactInquiryCreate):
@@ -96,6 +173,10 @@ async def create_contact_inquiry(input: ContactInquiryCreate):
     doc['created_at'] = doc['created_at'].isoformat()
     
     await db.contact_inquiries.insert_one(doc)
+    
+    # Send email notification (non-blocking)
+    asyncio.create_task(send_contact_notification(inquiry_obj))
+    
     return inquiry_obj
 
 @api_router.get("/contact", response_model=List[ContactInquiry])
