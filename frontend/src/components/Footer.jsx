@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin, ExternalLink } from "lucide-react";
-
-const COMPANY_LOGO = "https://customer-assets.emergentagent.com/job_karan-freight/artifacts/7n62afik_logo.PNG";
+import CompanyLogo from "@/components/CompanyLogo";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -13,12 +12,8 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Company Info */}
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-3 mb-6">
-              <img 
-                src={COMPANY_LOGO} 
-                alt="Karan Singh Transport Services" 
-                className="h-20 w-auto object-contain bg-white p-2 rounded"
-              />
+            <div className="flex items-center gap-3 mb-6 bg-white p-3 rounded w-fit">
+              <CompanyLogo className="h-16 w-auto" />
             </div>
             <p className="text-orange-500 font-semibold uppercase tracking-wider text-sm mb-4">
               Safe • Fast • Reliable Services
