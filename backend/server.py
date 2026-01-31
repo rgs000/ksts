@@ -5,12 +5,14 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import asyncio
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-import resend
 
 
 ROOT_DIR = Path(__file__).parent
@@ -21,9 +23,11 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Resend email configuration
-resend.api_key = os.environ.get('RESEND_API_KEY', '')
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+# SMTP Email configuration
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'mail.privateemail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
+SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', 'contact@karansinghtransport.com')
 
 # Create the main app without a prefix
@@ -93,11 +97,11 @@ async def get_status_checks():
     
     return status_checks
 
-# Email sending helper
+# Email sending helper using SMTP
 async def send_contact_notification(inquiry: ContactInquiry):
-    """Send email notification for new contact inquiry"""
-    if not resend.api_key:
-        logger.warning("RESEND_API_KEY not configured, skipping email notification")
+    """Send email notification for new contact inquiry via SMTP"""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        logger.warning("SMTP credentials not configured, skipping email notification")
         return None
     
     html_content = f"""
@@ -148,17 +152,31 @@ async def send_contact_notification(inquiry: ContactInquiry):
     </html>
     """
     
-    params = {
-        "from": SENDER_EMAIL,
-        "to": [NOTIFICATION_EMAIL],
-        "subject": f"New Inquiry: {inquiry.service_type} - {inquiry.name}",
-        "html": html_content
-    }
+    def send_smtp_email():
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"New Inquiry: {inquiry.service_type} - {inquiry.name}"
+            msg['From'] = SMTP_EMAIL
+            msg['To'] = NOTIFICATION_EMAIL
+            
+            html_part = MIMEText(html_content, 'html')
+            msg.attach(html_part)
+            
+            # Connect with SSL
+            with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+                server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                server.sendmail(SMTP_EMAIL, NOTIFICATION_EMAIL, msg.as_string())
+            
+            return True
+        except Exception as e:
+            logger.error(f"SMTP error: {str(e)}")
+            return False
     
     try:
-        email = await asyncio.to_thread(resend.Emails.send, params)
-        logger.info(f"Email notification sent for inquiry {inquiry.id}")
-        return email
+        result = await asyncio.to_thread(send_smtp_email)
+        if result:
+            logger.info(f"Email notification sent for inquiry {inquiry.id}")
+        return result
     except Exception as e:
         logger.error(f"Failed to send email notification: {str(e)}")
         return None
