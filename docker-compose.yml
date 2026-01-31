@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  backend:
+    build: ./backend
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=karan_transport
+      - CORS_ORIGINS=https://www.karansinghtransport.com,https://karansinghtransport.com,http://localhost:3000
+      - SMTP_SERVER=mail.privateemail.com
+      - SMTP_PORT=465
+      - SMTP_EMAIL=contact@karansinghtransport.com
+      - SMTP_PASSWORD=Ksts@123
+      - NOTIFICATION_EMAIL=contact@karansinghtransport.com
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_BACKEND_URL=https://www.karansinghtransport.com
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  app-network:
+    driver: bridge
